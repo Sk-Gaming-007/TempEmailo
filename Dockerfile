@@ -1,14 +1,13 @@
-# Multi-stage build for optimized production image
-FROM node:22-alpine AS builder
+# Production-ready Dockerfile for Render.com deployment
+FROM node:22-alpine
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm install --save-dev @tailwindcss/vite @types/node @types/react @types/react-dom @vitejs/plugin-react tailwindcss typescript vite vite-plugin-singlefile
+# Install all dependencies (including dev for build)
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -16,23 +15,15 @@ COPY . .
 # Build the project
 RUN npm run build
 
-# Production stage - lightweight image
-FROM node:22-alpine
-
-WORKDIR /app
-
-# Install serve to run the static files
+# Install serve globally for static file serving
 RUN npm install -g serve
 
-# Copy built dist folder from builder
-COPY --from=builder /app/dist ./dist
-
-# Expose port
+# Expose port (Render uses $PORT environment variable)
 EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
 
-# Start the application
+# Start the application on port 3000
 CMD ["serve", "-s", "dist", "-l", "3000"]
