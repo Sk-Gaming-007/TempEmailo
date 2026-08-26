@@ -1,35 +1,54 @@
-  - name: Unzip archive
-    run: |
-      ZIP="develop-tempemailo-web-application (2).zip"
-      if [ ! -f "$ZIP" ]; then
-        echo "Zip not found: $ZIP"
-        exit 1
-      fi
-      rm -rf extracted || true
-      mkdir extracted
-      unzip -o "$ZIP" -d extracted
+name: Unzip and create branch with extracted contents
 
-  - name: Copy files to workspace
-    run: |
-      if command -v rsync >/dev/null 2>&1; then
-        rsync -a --delete extracted/ ./
-      else
-        cp -a extracted/. ./
-      fi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'develop-tempemailo-web-application (2).zip'
 
-  - name: Create branch & push
-    env:
-      GITHUB_REF_BRANCH: ${{ github.ref_name }}
-    run: |
-      BR="unzip-contents-$(date +%s)"
-      git config user.name "github-actions[bot]"
-      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      git checkout -b "$BR"
-      git add -A
-      if git diff --cached --quiet; then
-        echo "No changes to commit"
-        exit 0
-      fi
-      git commit -m "Add extracted contents from ZIP (automated)"
-      git push origin "$BR"
-      echo "Branch pushed: $BR"
+permissions:
+  contents: write
+
+jobs:
+  unzip-and-push-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Unzip archive
+        run: |
+          ZIP="develop-tempemailo-web-application (2).zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "Zip not found: $ZIP"
+            exit 1
+          fi
+          rm -rf extracted || true
+          mkdir extracted
+          unzip -o "$ZIP" -d extracted
+
+      - name: Copy files to workspace
+        run: |
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -a --delete extracted/ ./
+          else
+            cp -a extracted/. ./
+          fi
+
+      - name: Create branch & push
+        run: |
+          BR="unzip-contents-$(date +%s)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Add extracted contents from ZIP (automated)"
+          git push origin "$BR"
+          echo "Branch pushed: $BR"
