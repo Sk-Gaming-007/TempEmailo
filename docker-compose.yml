@@ -1,3 +1,4 @@
+# Local development with Docker Compose
 version: '3.8'
 
 services:
@@ -5,17 +6,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tempamailo-app
+    container_name: tempamailo-local
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
     restart: unless-stopped
-    # For Docker Hub deployment
-    image: skgaming007/tempamailo:latest
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
