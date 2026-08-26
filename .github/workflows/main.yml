@@ -1,4 +1,4 @@
-name: Unzip and create branch with extracted contents
+name: Unzip and push (attempt main, fallback to branch)
 
 on:
   workflow_dispatch:
@@ -10,27 +10,32 @@ permissions:
   contents: write
 
 jobs:
-  unzip-and-push-branch:
+  unzip-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: true
           fetch-depth: 0
 
+      - name: Ensure unzip is available
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y unzip rsync || true
+
       - name: Unzip archive
         run: |
-          ZIP="develop-tempemailo-web-application (2).zip"
-          if [ ! -f "$ZIP" ]; then
-            echo "Zip not found: $ZIP"
+          ZIPFILE="develop-tempemailo-web-application (2).zip"
+          if [ ! -f "$ZIPFILE" ]; then
+            echo "::error::Zip file not found: $ZIPFILE"
             exit 1
           fi
           rm -rf extracted || true
           mkdir extracted
-          unzip -o "$ZIP" -d extracted
+          unzip -o "$ZIPFILE" -d extracted
 
-      - name: Copy files to workspace
+      - name: Copy extracted files to workspace
         run: |
           if command -v rsync >/dev/null 2>&1; then
             rsync -a --delete extracted/ ./
@@ -38,17 +43,41 @@ jobs:
             cp -a extracted/. ./
           fi
 
-      - name: Create branch & push
+      - name: Commit changes if any
         run: |
-          BR="unzip-contents-$(date +%s)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BR"
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit"
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+          else
+            git commit -m "Unzip and overwrite contents from ZIP (automated)"
+          fi
+
+      - name: Try push to main, fallback to new branch on failure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ env.NO_CHANGES }}" = "true" ]; then
+            echo "Nothing to push; exiting"
             exit 0
           fi
-          git commit -m "Add extracted contents from ZIP (automated)"
-          git push origin "$BR"
-          echo "Branch pushed: $BR"
+
+          set +e
+          echo "Attempting to push to main (overwrite)..."
+          git push origin HEAD:refs/heads/main
+          PUSH_STATUS=$?
+          set -e
+
+          if [ $PUSH_STATUS -eq 0 ]; then
+            echo "Pushed to main successfully."
+            exit 0
+          fi
+
+          echo "Direct push to main failed (status=$PUSH_STATUS). Creating fallback branch and pushing there."
+          BRANCH="unzip-contents-$(date +%s)"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          echo "Created branch: $BRANCH"
+          echo "::set-output name=branch::$BRANCH"
