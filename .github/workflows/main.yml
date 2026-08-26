@@ -1,0 +1,35 @@
+  - name: List files (debug)
+    run: |
+      echo "Repository contents:" && ls -la
+
+  - name: Unzip the archive and overwrite files
+    run: |
+      set -e
+      ZIPFILE="develop-tempemailo-web-application (2).zip"
+      if [ ! -f "$ZIPFILE" ]; then
+        echo "Zip file not found: $ZIPFILE"
+        exit 1
+      fi
+      rm -rf extracted || true
+      mkdir extracted
+      unzip -o "$ZIPFILE" -d extracted
+      if command -v rsync >/dev/null 2>&1; then
+        rsync -a --delete extracted/ ./
+      else
+        cp -a extracted/. ./
+      fi
+
+  - name: Commit and push extracted files
+    env:
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+    run: |
+      git config user.name "github-actions[bot]"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git add -A
+      if git diff --cached --quiet; then
+        echo "No changes to commit"
+      else
+        git commit -m "Unzip and overwrite contents from develop-tempemailo-web-application (2).zip"
+        git push origin HEAD:main
+      fi
