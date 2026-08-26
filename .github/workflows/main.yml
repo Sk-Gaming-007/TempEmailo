@@ -1,35 +1,35 @@
-  - name: List files (debug)
+  - name: Unzip archive
     run: |
-      echo "Repository contents:" && ls -la
-
-  - name: Unzip the archive and overwrite files
-    run: |
-      set -e
-      ZIPFILE="develop-tempemailo-web-application (2).zip"
-      if [ ! -f "$ZIPFILE" ]; then
-        echo "Zip file not found: $ZIPFILE"
+      ZIP="develop-tempemailo-web-application (2).zip"
+      if [ ! -f "$ZIP" ]; then
+        echo "Zip not found: $ZIP"
         exit 1
       fi
       rm -rf extracted || true
       mkdir extracted
-      unzip -o "$ZIPFILE" -d extracted
+      unzip -o "$ZIP" -d extracted
+
+  - name: Copy files to workspace
+    run: |
       if command -v rsync >/dev/null 2>&1; then
         rsync -a --delete extracted/ ./
       else
         cp -a extracted/. ./
       fi
 
-  - name: Commit and push extracted files
+  - name: Create branch & push
     env:
-      GIT_COMMITTER_NAME: github-actions[bot]
-      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GITHUB_REF_BRANCH: ${{ github.ref_name }}
     run: |
+      BR="unzip-contents-$(date +%s)"
       git config user.name "github-actions[bot]"
       git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git checkout -b "$BR"
       git add -A
       if git diff --cached --quiet; then
         echo "No changes to commit"
-      else
-        git commit -m "Unzip and overwrite contents from develop-tempemailo-web-application (2).zip"
-        git push origin HEAD:main
+        exit 0
       fi
+      git commit -m "Add extracted contents from ZIP (automated)"
+      git push origin "$BR"
+      echo "Branch pushed: $BR"
