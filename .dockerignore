@@ -5,10 +5,5 @@ npm-debug.log
 .env
 .env.local
 dist
-build
-README.md
-LICENSE
-.github
-.vscode
 .DS_Store
-*.md
+.vscode
