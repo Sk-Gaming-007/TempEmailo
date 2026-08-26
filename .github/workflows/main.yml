@@ -35,13 +35,12 @@ jobs:
           mkdir extracted
           unzip -o "$ZIPFILE" -d extracted
 
-      - name: Copy extracted files to workspace
+      - name: Copy extracted files to workspace (tar stream, robust)
         run: |
-          if command -v rsync >/dev/null 2>&1; then
-            rsync -a --delete extracted/ ./
-          else
-            cp -a extracted/. ./
-          fi
+          set -e
+          # Use tar stream to avoid rsync 'vanished files' issues
+          (cd extracted && tar -cf - .) | tar -xpf - -C .
+          echo "Files copied via tar stream."
 
       - name: Commit changes if any
         run: |
@@ -80,4 +79,4 @@ jobs:
           git checkout -b "$BRANCH"
           git push origin "$BRANCH"
           echo "Created branch: $BRANCH"
-          echo "::set-output name=branch::$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
